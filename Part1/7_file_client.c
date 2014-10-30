@@ -5,26 +5,27 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-#define BUF_SIZE 1024
+#define BUF_SIZE 30 
 
 void error_handling(char *message);
 
 int main(int argc, char* argv[])
 {
-	int sock;
+	int sd;
+	FILE* fp;
+	char buf[BUF_SIZE];
+	int read_cnt;
 	struct sockaddr_in serv_addr;
-	char message[BUF_SIZE];
-	int str_len;
-	int recv_len, recv_cnt;
 
 	if (argc != 3)
 	{
 		printf("Usage : %s <IP> <port>\n", argv[0]);
 		exit(1);
 	}
-
-	sock = socket(PF_INET, SOCK_STREAM, 0);
-	if (sock == -1)
+	
+	fp = fopen("received.dat", "wb");
+	sd = socket(PF_INET, SOCK_STREAM, 0);
+	if (sd == -1)
 	{
 		error_handling("socket() error");
 	}
@@ -34,39 +35,20 @@ int main(int argc, char* argv[])
 	serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
 	serv_addr.sin_port= htons(atoi(argv[2]));
 
-	if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
+	if (connect(sd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
 	{
 		error_handling("connect() error!");
 	}
-	else
-	{
-		puts("Connected Success!!!");
-	}
 	
-	while (1)
+	while ((read_cnt = read(sd, buf, BUF_SIZE)) != 0)
 	{
-		fputs("Input message(Q to quit): ", stdout);
-		fgets(message, BUF_SIZE, stdin);
-
-		if (!strcmp(message, "q\n") || !strcmp(message, "Q\n"))
-			break;
-
-		str_len = write(sock, message, strlen(message));
-		
-		recv_len = 0;
-		while(recv_len < str_len)
-		{
-			recv_cnt = read(sock, &message[recv_len], BUF_SIZE - 1);
-			if (recv_cnt == -1)
-			{
-				error_handling("read() error!");
-			}
-			recv_len += recv_cnt;
-		}
-		message[recv_len] = 0;
-		printf("Message from server : %s \n", message);
+		fwrite((void *)buf, 1, read_cnt, fp);
 	}
-	close(sock);
+
+	write(sd, "Thank you", 10);
+	puts("Received file dat");
+	fclose(fp);
+	close(sd);
 	return 0;
 }
 

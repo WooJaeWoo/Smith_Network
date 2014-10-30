@@ -14,9 +14,9 @@ int main(int argc, char *argv[])
 	int serverSocket;
 	int clientSocket;
 	FILE* fp;
-	struct sockaddr_in serv_addr, sockaddr_in clnt_addr;
+	struct sockaddr_in serv_addr, clnt_addr;
 	socklen_t clnt_addr_size;
-	char message[BUF_SIZE];
+	char buf[BUF_SIZE];
 	int read_cnt;
 
 	if (argc != 2)
@@ -48,26 +48,23 @@ int main(int argc, char *argv[])
 	}
 
 	clnt_addr_size = sizeof(clnt_addr);
-
-	for (i = 0; i < 5; i++)
+	clientSocket = accept(serverSocket, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
+	while(1)
 	{
-		clientSocket = accept(serverSocket, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
-		if (clientSocket == -1)
+		read_cnt = fread((void *)buf, 1, BUF_SIZE, fp);
+		if (read_cnt < BUF_SIZE)
 		{
-			error_handling("accept() error");
+			write(clientSocket, buf, read_cnt);
+			break;
 		}
-		else
-		{
-			printf("Conneted Client %d \n", i + 1);
-		}
-	
-		while ((str_len = read(clientSocket, message, BUF_SIZE)) != 0)
-		{
-			write(clientSocket, message, str_len);
-		}
-	
-		close(clientSocket);
+		write(clientSocket, buf, BUF_SIZE);
 	}
+	shutdown(clientSocket, SHUT_WR);
+	read(clientSocket, buf, BUF_SIZE);
+	printf("Message from client: %s \n", buf);
+
+	fclose(fp);
+	close(clientSocket);
 	close(serverSocket);
 	return 0;
 }
