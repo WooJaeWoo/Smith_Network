@@ -1,4 +1,4 @@
-//
+
 // client.c
 // simple_client
 //
