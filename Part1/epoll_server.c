@@ -5,22 +5,29 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <fcntl.h>
 
 #define BUF_SIZE 16
 #define EPOLL_SIZE 64
 
-#define IP "10.73.42.131"
+#define IP "127.0.0.1"
 #define PORT 9000
+
+void setnonblocking(int fd)
+{
+	int flag = fcntl(fd, F_GETFL, 0);
+	fcntl(fd, F_SETFL, flag|O_NONBLOCK);
+}
 
 int main(int argc, char* argv[])
 {
 	int serverSock, clientSock;
 	struct sockaddr_in serverDetail, clientDetail;
-	char* buf[BUF_SIZE];
-	FILE* readfp;
-	FILE* writefp;
+	char buf[BUF_SIZE];
+	FILE* readfp[EPOLL_SIZE];
+	FILE* writefp[EPOLL_SIZE];
 	socklen_t addrSize;
-	int strLength, i;
+	int i, j;
 
 	struct epoll_event *ep_events;
 	struct epoll_event epollEvent;
@@ -35,8 +42,8 @@ int main(int argc, char* argv[])
 	bind(serverSock, (struct sockaddr*)&serverDetail, sizeof(serverDetail));
 	listen(serverSock, 5);
 
-	readfp = fdopen(serverSock, "r");
-	writefp = fdopen(serverSock, "w");
+	readfp[serverSock - 3] = fdopen(serverSock, "r");
+	writefp[serverSock - 3] = fdopen(serverSock, "w");
 
 	epfd = epoll_create(EPOLL_SIZE);
 	ep_events = malloc(sizeof(struct epoll_event) * EPOLL_SIZE);
@@ -45,45 +52,61 @@ int main(int argc, char* argv[])
 	epollEvent.data.fd = serverSock;
 	epoll_ctl(epfd, EPOLL_CTL_ADD, serverSock, &epollEvent);
 
-	while(1)
+	while (1)
 	{
 		event_cnt = epoll_wait(epfd, ep_events, EPOLL_SIZE, -1);
+		printf("wait: %d\n", event_cnt);
 		if (event_cnt == -1)
 		{
 			puts("wait error\n");
 			break;
 		}
-
 		for (i = 0; i < event_cnt; ++i)
 		{
+			printf("loop %d\n", i);
 			if (ep_events[i].data.fd == serverSock)
 			{
+				printf("Server %d\n", serverSock);
 				addrSize = sizeof(clientDetail);
 				clientSock = accept(serverSock, (struct sockaddr*)&clientDetail, &addrSize);
+				
+				setnonblocking(clientSock);
+				readfp[clientSock - 4] = fdopen(clientSock, "r");
+				writefp[clientSock - 4] = fdopen(clientSock, "w");
+
 				epollEvent.events = EPOLLIN;
 				epollEvent.data.fd = clientSock;
-				epoll_ctl(epfd, EPOLL_CLT_ADD, clientSock, &epollEvent);
+				epoll_ctl(epfd, EPOLL_CTL_ADD, clientSock, &epollEvent);
 				printf("conneted client: %d\n", clientSock);
 			}
-			else //client
+			else
 			{
-				fgets(buf, BUF_SIZE, readfp);
-				if (strlen(buf) == 0)
+				for (j = 1; j < clientSock - 3; j++)
 				{
-					epoll_ctl(epfd, EPOLL_CLT_DEL, ep_event[i].data.fd, NULL);
-					close(ep_events[i].data.fd);
-					printf("disconnect client: %d\n", ep_events[i].data.fd); //??? 닫았는데 어떻게 쓰지?
-				}
-				else
-				{
-					fputs(buf, writefp);
-					fflush(writefp);
+					if (feof(readfp[j]))
+					{
+						epoll_ctl(epfd, EPOLL_CTL_DEL, ep_events[i].data.fd, NULL);
+						close(ep_events[i].data.fd);
+						printf("disconnect client: %d\n", ep_events[i].data.fd); //??? 닫았는데 어떻게 쓰지?
+					}
+					else
+					{
+						printf("client else\n");
+						fgets(buf, BUF_SIZE, readfp[j]);
+						fputs(buf, writefp[j]);
+						fflush(writefp[j]);
+						printf("client success!\n");
+					}
 				}
 			}
 		}
 	}
-	fclose(writefp);
-	fclose(readfp);
+	printf("closing\n");
+	for (i = 0; i < clientSock - 3; i++)
+	{
+		fclose(writefp[i]);
+		fclose(readfp[i]);
+	}
 	close(serverSock);
 	return 0;
 }
