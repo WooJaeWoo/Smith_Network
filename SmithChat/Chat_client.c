@@ -4,88 +4,113 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <pthread.h>
+#include <errno.h>
 
 #define PORT 9000
+#define NAME_SIZE 20
 #define BUF_SIZE 1024
 
-void error_handling(char *message);
+void ErrorHandling(char* message)
+{
+	perror(message);
+	exit(1);
+}
+
+void* readThread(void* arg);
+void* writeThread(void* arg);
+
+char name[NAME_SIZE];
 
 int main(int argc, char* argv[])
 {
 	int sock;
-	struct sockaddr_in serv_addr;
-	char message[BUF_SIZE];
-	int str_len;
-	int recv_len, recv_cnt;
-	pid_t pid;
+	struct sockaddr_in serverDetail;
+	pthread_t t_read, t_write;
+	void* threadReturn;
 
 	if (argc != 3)
 	{
-		error_handling("Usage : ./SmithChat_client <IP> <name>");
+		ErrorHandling("Usage : ./chatClient <IP> <name>");
 	}
+	sprintf(name, "[%s]", argv[2]);
+	system("clear");
 
+	//socket()
 	sock = socket(PF_INET, SOCK_STREAM, 0);
 	if (sock == -1)
 	{
-		error_handling("socket() error");
+		ErrorHandling("socket() error");
 	}
 
-	memset(&serv_addr, 0, sizeof(serv_addr));
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
-	serv_addr.sin_port= htons(PORT);
+	memset(&serverDetail, 0, sizeof(serverDetail));
+	serverDetail.sin_family = AF_INET;
+	serverDetail.sin_addr.s_addr = inet_addr(argv[1]);
+	serverDetail.sin_port= htons(PORT);
 
-	if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1)
+	//connect()
+	if (connect(sock, (struct sockaddr*)&serverDetail, sizeof(serverDetail)) == -1)
 	{
-		error_handling("connect() error!");
-	}
-	else
-	{
-		puts("Connected Success!!!");
+		ErrorHandling("connect() error");
 	}
 	
-	pid = fork();
-	if (pid == 0)
+	//thread create
+	if (pthread_create(&t_read, NULL, readThread, (void*)&sock) != 0)
 	{
-		while (1)
-		{
-			str_len = recv(sock, message, BUF_SIZE, 0);	
-			if (str_len == -1)
-			{
-				error_handling("read() error!");
-			}
-			else if (str_len == 0)
-			{
-				return;
-			}
-			message[str_len] = 0;
-			printf("Message from server : %s \n", message);
-		}
+		ErrorHandling("pthread_create Error");
 	}
-	else
+	if (pthread_create(&t_write, NULL, writeThread, (void*)&sock) != 0)
 	{
-		while (1)
-		{
-			fputs("input: ", stdout);
-			fgets(message, BUF_SIZE, stdin);
-			
-			if (!strcmp(message, "q\n") || !strcmp(message, "Q\n"))
-			{
-				shutdown(sock, SHUT_WR);
-				return;
-			}
-			send(sock, message, strlen(message), 0);
-		}
+		ErrorHandling("pthread_create Error");
 	}
-
-	close(sock);
+	if (pthread_join(t_read, &threadReturn) != 0)
+	{
+		ErrorHandling("pthread_join Error");
+	}
+	if (pthread_join(t_write, &threadReturn) != 0)
+	{
+		ErrorHandling("pthread_join Error");
+	}
 	return 0;
 }
 
-void error_handling(char *message)
+void* writeThread(void* arg)
 {
-	fputs(message, stderr);
-	fputc('\n', stderr);
-	exit(1);
+	int sock = *((int*)arg);
+	char buf[BUF_SIZE];
+	char message[NAME_SIZE + BUF_SIZE];
+	while (1)
+	{
+		fgets(buf, BUF_SIZE, stdin);
+		if (!strcmp(buf, "q\n") || !strcmp(buf, "Q\n"))
+		{
+			close(sock);
+			exit(0);
+		}
+		sprintf(message, "%s %s", name, buf); 
+		write(sock, message, strlen(message));
+	}
+	return NULL;
 }
 
+void* readThread(void* arg)
+{
+	int sock = *((int*)arg);
+	char message[NAME_SIZE + BUF_SIZE];
+	int strLength;
+	while (1)
+	{
+		strLength = read(sock, message, NAME_SIZE + BUF_SIZE - 1);	
+		if (strLength == -1)
+		{
+			printf("read from server error\n");
+		}
+		else if (strLength == 0)
+		{
+			return (void*)-1;
+		}
+		message[strLength] = 0;
+		printf("%s", message);
+	}
+	return NULL;
+}
