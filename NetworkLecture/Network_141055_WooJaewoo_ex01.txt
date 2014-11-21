@@ -1,0 +1,46 @@
+input: HTTP/1.1 200 OK
+Server: nginx
+Date: Thu, 06 Nov 2014 02:30:36 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: close
+Cache-Control: no-cache, no-store, must-revalidate
+Pragma: no-cache
+P3P: CP="CAO DSP CURa ADMa TAIa PSAa OUR LAW STP PHY ONL UNI PUR FIN COM NAV INT DEM STA PRE"
+X-Frame-Options: SAMEORIGIN
+
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Script-Type" content="text/javascript">
+<meta http-equiv="Content-Style-Type" content="text/css">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=960">
+<meta name="apple-mobile-web-app-title" content="NAVER" />
+<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?1" />
+
+<title>NAVER</title>
+
+
+
+
+
+
+<link rel="stylesheet" type="text/css" href="/css/main_v20141021.css" />
+
+<link rel="stylesheet" type="text/css" id="css" href="http://sstatic.naver.net/search/css/2014/api_atcmp_0415.css" />
+
+<script type="text/javascript">
+//<![CDATA[
+document.domain = "naver.com";
+history.navigationMode = 'compatible';
+var nsc = "navertop.v3";
+var jindoAll = "/js/c/jindo.all.20140327.min.js";
+</script>
+<script type="text/javascript" src="/js/c/nlog_20140205.min.js"></script>
+<script type="text/javascript">
+var isAdult = false;
+var isLogin = false; 
+var global = {
+isSupportedFlicking : false,
+isIPAD : 

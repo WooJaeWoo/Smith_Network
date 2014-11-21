@@ -20,7 +20,7 @@ int main(int argc, char *argv[]){
 	
 	int serverSock, clientSock;
 	struct sockaddr_in serverDetail, clientDetail;
-	int clientAddrSize;
+	socklen_t clientAddrSize;
 	char buf[BUF_SIZE];
 	pthread_t tid;
 
@@ -61,17 +61,17 @@ void *requestHandler(void *arg){
 	char contentType[15];
 	char fileName[30];
 
-	clientRead = fdopen(clientSock, "r");
-	clientWrite = fdopen(dup(clientSock), "w");
+	clientRead = fdopen(clientSock, "rb");
+	clientWrite = fdopen(dup(clientSock), "wb");
 	
 	fgets(requestLine, SMALL_BUF, clientRead);
 	printf("RL: %s\n", requestLine);
-	if(strstr(requestLine, "HTTP/")==NULL){
+	/*if(strstr(requestLine, "HTTP/")==NULL){
 		sendError(clientWrite, 400);
 		fclose(clientRead);
 		fclose(clientWrite);
-		return;
-	}
+		return NULL;
+	}*/
 
 	strcpy(method, strtok(requestLine, " /"));
 	printf("M: %s\n", method);
@@ -79,16 +79,16 @@ void *requestHandler(void *arg){
 	printf("FN: %s\n", fileName);
 	strcpy(contentType, typeHandler(fileName));
 	printf("CT: %s\n", contentType);
-	if(strcmp(method, "GET") != 0){
+	/*if(strcmp(method, "GET") != 0){
 		sendError(clientWrite, 400);
 		fclose(clientRead);
 		fclose(clientWrite);
-		return;
-	}
+		return NULL;
+	}*/
 
 	fclose(clientRead);
 	sendData(clientWrite, contentType, fileName);
-	
+	return NULL;	
 }
 
 void sendData(FILE* clientWrite, char *contentType, char *fileName){
@@ -100,7 +100,7 @@ void sendData(FILE* clientWrite, char *contentType, char *fileName){
 	FILE *sendFile;
 
 	sprintf(typeMessage, "Content-type:%s\r\n\r\n", contentType);
-	sendFile = fopen(fileName, "r");
+	sendFile = fopen(fileName, "rb");
 
 	if(sendFile == NULL){
 		sendError(clientWrite, 404);
